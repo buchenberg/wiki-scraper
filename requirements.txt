@@ -1,0 +1,6 @@
+wikipedia-api
+openai
+pandas
+tqdm
+python-dotenv
+jupyter
