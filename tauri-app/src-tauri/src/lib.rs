@@ -18,28 +18,33 @@ async fn get_models(provider: String, base_url: String, api_key: Option<String>)
 }
 
 #[tauri::command]
-async fn start_scrape(
+async fn search_wiki(query: String) -> Result<Vec<String>, String> {
+    scraper::search(&query, 20).await // Hardcoded limit for search results for now, can be made dynamic if needed
+}
+
+#[tauri::command]
+async fn start_scrape_selected(
     app: tauri::AppHandle, 
     _state: State<'_, AppState>, 
-    query: String, 
+    pages: Vec<String>, 
     model: String, 
     provider: String,
     base_url: String,
     api_key: Option<String>,
-    max_pages: u32, 
     pairs_count: u32
 ) -> Result<String, String> {
     if model.is_empty() {
         return Err("Please select a model.".to_string());
     }
 
+    if pages.is_empty() {
+        return Err("No pages selected.".to_string());
+    }
+
     let provider_enum = LlmProvider::from_str(&provider);
     let client = LlmClient::new(provider_enum, base_url, api_key);
     
-    app.emit("scrape-log", format!("Starting search for '{}' using model '{}'...", query, model)).unwrap();
-    
-    let pages = scraper::search(&query, max_pages).await.map_err(|e| e.to_string())?;
-    app.emit("scrape-log", format!("Found {} pages: {:?}", pages.len(), pages)).unwrap();
+    app.emit("scrape-log", format!("Starting scrape for {} pages using model '{}'...", pages.len(), model)).unwrap();
     
     let mut all_data = Vec::new();
     let total_pages = pages.len();
@@ -109,7 +114,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(AppState {})
-        .invoke_handler(tauri::generate_handler![start_scrape, get_models])
+        .invoke_handler(tauri::generate_handler![start_scrape_selected, get_models, search_wiki])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
